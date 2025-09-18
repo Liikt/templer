@@ -70,3 +70,12 @@ fn multiple_variables() {
 
     assert_eq!(rendered, "Hello foo this is bar");
 }
+
+#[test]
+fn insert_list() {
+    let template = Template::new("Hello to all {{ names }}").unwrap();
+    let baz = String::from("baz");
+    let rendered = template.render(template_vars!("names" => ["foo", "bar", baz]));
+
+    assert_eq!(rendered, "Hello to all [foo, bar, baz]");
+}
