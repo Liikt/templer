@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::Path};
+use std::collections::HashMap;
+use std::path::Path;
+
+use regex::Regex;
 
 pub type TempelResult<T> = std::result::Result<T, TempelError>;
 
@@ -7,6 +10,9 @@ pub enum TempelError {
     TemplateRead(std::io::Error),
 
     UnbalancedBraces,
+    UnbalancedForLoop,
+
+    NoSuchList(String),
 
     FormatError { start: usize, end: usize },
 }
@@ -26,6 +32,12 @@ impl TempelVar {
     }
 }
 
+struct LoopInfo {
+    head: String,
+    body: String,
+    end: String,
+}
+
 #[derive(Debug)]
 pub struct Template {
     content: String,
@@ -34,30 +46,12 @@ pub struct Template {
 
 impl Template {
     fn parse_vars(&mut self) -> TempelResult<()> {
-        let starts: Vec<_> = self.content.match_indices("{{").collect();
-        let ends: Vec<_> = self.content.match_indices("}}").collect();
-
-        if starts.len() != ends.len() {
-            return Err(TempelError::UnbalancedBraces);
-        }
-
-        for x in 0..starts.len() - 1 {
-            if ends[x].0 > starts[x + 1].0 || ends[x].0 < starts[x].0 {
-                return Err(TempelError::FormatError {
-                    start: starts[x].0,
-                    end: ends[x].0,
-                });
-            }
-
-            let tmp = &self.content[starts[x].0 + 2..ends[x].0];
-
-            if tmp
-                .matches(char::is_whitespace)
-                .collect::<Vec<_>>()
-                .is_empty()
-            {
-                self.variables.push(tmp.to_string());
-            }
+        let regex = Regex::new(r"\{\{[ \t]*([a-zA-Z_]+)[ \t]*}}").unwrap();
+        for (_, [name]) in regex
+            .captures_iter(&self.content)
+            .map(|caps| caps.extract())
+        {
+            self.variables.push(name.to_string());
         }
 
         Ok(())
@@ -97,14 +91,51 @@ impl Template {
         };
     }
 
-    fn replace_vars(mut template: String, vars: HashMap<String, TempelVar>) -> String {
+    fn parse_loops(
+        mut template: String,
+        vars: &HashMap<String, TempelVar>,
+    ) -> TempelResult<String> {
+        let regex = Regex::new(
+            r"\{%[ \t]*for ([a-zA-Z_]+) in ([a-zA-Z_]+)[ \t]*%}(.*?)\{%[ \t]*endfor[ \t]*%}",
+        )
+        .unwrap();
+
+        let mut changes = Vec::new();
+
+        for (_, [key, list, body]) in regex.captures_iter(&template).map(|caps| caps.extract()) {
+            let mut new = String::new();
+            if let TempelVar::List(l) = vars
+                .get(list)
+                .ok_or(TempelError::NoSuchList(list.to_string()))?
+            {
+                for val in l {
+                    let mut tmp = vars.clone();
+                    tmp.insert(key.to_string(), TempelVar::String(val.to_string()));
+                    new.push_str(&Self::replace_vars(body.to_string(), &tmp));
+                }
+            }
+            changes.push((
+                format!("{{% for {key} in {list} %}}{body}{{% endfor %}}"),
+                new,
+            ));
+        }
+
+        for (old, new) in changes {
+            template = template.replace(&old, &new);
+        }
+
+        Ok(template)
+    }
+
+    fn replace_vars(mut template: String, vars: &HashMap<String, TempelVar>) -> String {
         for (key, val) in vars.iter() {
             template = template.replace(&format!("{{{{{}}}}}", key), &val.as_string());
         }
         template
     }
 
-    pub fn render(&self, vars: HashMap<String, TempelVar>) -> String {
-        Self::replace_vars(self.content.clone(), vars)
+    pub fn render(&self, vars: HashMap<String, TempelVar>) -> TempelResult<String> {
+        let template = Self::replace_vars(self.content.clone(), &vars);
+        Self::parse_loops(template, &vars)
     }
 }

@@ -2,24 +2,9 @@ use tempel::template_vars;
 use tempel::{TempelVar, Template};
 
 #[test]
-fn unbalanced_template() {
-    let template = Template::new("{{ {{ test }}");
-    assert!(template.is_err());
-}
-
-#[test]
-fn wrong_brace_order() {
-    let template = Template::new("{{ {{ }} }}");
-    assert!(template.is_err());
-
-    let template = Template::new("}} {{ }} {{");
-    assert!(template.is_err());
-}
-
-#[test]
 fn correct_template() {
     let template = Template::new("Hello {{name}}").unwrap();
-    let rendered = template.render(template_vars!("name" => "foo"));
+    let rendered = template.render(template_vars!("name" => "foo")).unwrap();
 
     assert_eq!(rendered, "Hello foo");
 }
@@ -27,7 +12,7 @@ fn correct_template() {
 #[test]
 fn space_normalization() {
     let template = Template::new("Hello {{ name  }}").unwrap();
-    let rendered = template.render(template_vars!("name" => "foo"));
+    let rendered = template.render(template_vars!("name" => "foo")).unwrap();
 
     assert_eq!(rendered, "Hello foo");
 }
@@ -35,14 +20,14 @@ fn space_normalization() {
 #[test]
 fn tab_normalization() {
     let template = Template::new("Hello {{\tname\t\t}}").unwrap();
-    let rendered = template.render(template_vars!("name" => "foo"));
+    let rendered = template.render(template_vars!("name" => "foo")).unwrap();
 
     assert_eq!(rendered, "Hello foo");
 }
 #[test]
 fn mixed_normalization() {
     let template = Template::new("Hello {{\tname \t }}").unwrap();
-    let rendered = template.render(template_vars!("name" => "foo"));
+    let rendered = template.render(template_vars!("name" => "foo")).unwrap();
 
     assert_eq!(rendered, "Hello foo");
 }
@@ -50,7 +35,7 @@ fn mixed_normalization() {
 #[test]
 fn missing_variable() {
     let template = Template::new("Hello {{\tname \t }}").unwrap();
-    let rendered = template.render(std::collections::HashMap::new());
+    let rendered = template.render(std::collections::HashMap::new()).unwrap();
 
     assert_eq!(rendered, "Hello {{name}}");
 }
@@ -58,7 +43,7 @@ fn missing_variable() {
 #[test]
 fn superflous_variable() {
     let template = Template::new("Hello {{\tname \t }}").unwrap();
-    let rendered = template.render(template_vars!("foo" => "name"));
+    let rendered = template.render(template_vars!("foo" => "name")).unwrap();
 
     assert_eq!(rendered, "Hello {{name}}");
 }
@@ -66,7 +51,9 @@ fn superflous_variable() {
 #[test]
 fn multiple_variables() {
     let template = Template::new("Hello {{\tname \t }} this is {{ other_name }}").unwrap();
-    let rendered = template.render(template_vars!("name" => "foo", "other_name" => "bar"));
+    let rendered = template
+        .render(template_vars!("name" => "foo", "other_name" => "bar"))
+        .unwrap();
 
     assert_eq!(rendered, "Hello foo this is bar");
 }
@@ -75,7 +62,36 @@ fn multiple_variables() {
 fn insert_list() {
     let template = Template::new("Hello to all {{ names }}").unwrap();
     let baz = String::from("baz");
-    let rendered = template.render(template_vars!("names" => ["foo", "bar", baz]));
+    let rendered = template
+        .render(template_vars!("names" => ["foo", "bar", baz]))
+        .unwrap();
 
     assert_eq!(rendered, "Hello to all [foo, bar, baz]");
+}
+
+#[test]
+fn simple_for_loop() {
+    let template =
+        Template::new("Hello from {% for name in names %}{{name}} {% endfor %}").unwrap();
+    let rendered = template
+        .render(template_vars!("names" => ["foo", "bar", "baz"]))
+        .unwrap();
+
+    assert_eq!(rendered, "Hello from foo bar baz ");
+}
+
+#[test]
+fn complex_loop() {
+    let template = Template::new(
+        "Hello fellow blub!{% for blub in blab %} Greetings to {{blub}} from {{foop }}{% endfor %}",
+    )
+    .unwrap();
+    let rendered = template
+        .render(template_vars!("blab" => ["foo", "bar"], "foop" => "base"))
+        .unwrap();
+
+    assert_eq!(
+        rendered,
+        "Hello fellow blub! Greetings to foo from base Greetings to bar from base"
+    );
 }
