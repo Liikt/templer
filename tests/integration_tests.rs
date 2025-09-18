@@ -2,7 +2,22 @@ use tempel::template_vars;
 use tempel::{TempelVar, Template};
 
 #[test]
-fn intended() {
+fn unbalanced_template() {
+    let template = Template::new("{{ {{ test }}");
+    assert!(template.is_err());
+}
+
+#[test]
+fn wrong_brace_order() {
+    let template = Template::new("{{ {{ }} }}");
+    assert!(template.is_err());
+
+    let template = Template::new("}} {{ }} {{");
+    assert!(template.is_err());
+}
+
+#[test]
+fn correct_template() {
     let template = Template::new("Hello {{name}}").unwrap();
     let rendered = template.render(template_vars!("name" => "foo"));
 

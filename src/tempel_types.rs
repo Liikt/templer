@@ -26,6 +26,7 @@ impl TempelVar {
     }
 }
 
+#[derive(Debug)]
 pub struct Template {
     content: String,
     variables: Vec<String>,
@@ -69,6 +70,7 @@ impl Template {
         };
 
         ret.normalize_template();
+        ret.parse_vars()?;
 
         Ok(ret)
     }
