@@ -1,7 +1,9 @@
 [package]
+license-file = "LICENSE"
 name = "templer"
 version = "0.1.0"
 edition = "2024"
+description = "This is a minial, jinja like templating engine, mainly used for the retort crate"
 
 [dependencies]
 regex = "1.11.2"
