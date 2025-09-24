@@ -12,10 +12,10 @@ macro_rules! template_vars {
     }};
 
     (@value [$($item:tt),*]) => {
-        TempelVar::List(vec![$($item.to_string()),*])
+        TemplerVar::List(vec![$($item.to_string()),*])
     };
 
     (@value $item:expr) => {
-        TempelVar::String($item.to_string())
+        TemplerVar::String($item.to_string())
     };
 }

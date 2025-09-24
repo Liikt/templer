@@ -3,10 +3,10 @@ use std::path::Path;
 
 use regex::Regex;
 
-pub type TempelResult<T> = std::result::Result<T, TempelError>;
+pub type TemplerResult<T> = std::result::Result<T, TemplerError>;
 
 #[derive(Debug)]
-pub enum TempelError {
+pub enum TemplerError {
     TemplateRead(std::io::Error),
 
     UnbalancedBraces,
@@ -18,12 +18,12 @@ pub enum TempelError {
 }
 
 #[derive(Debug, Clone)]
-pub enum TempelVar {
+pub enum TemplerVar {
     String(String),
     List(Vec<String>),
 }
 
-impl TempelVar {
+impl TemplerVar {
     fn as_string(&self) -> String {
         match self {
             Self::String(s) => s.to_string(),
@@ -45,7 +45,7 @@ pub struct Template {
 }
 
 impl Template {
-    fn parse_vars(&mut self) -> TempelResult<()> {
+    fn parse_vars(&mut self) -> TemplerResult<()> {
         let regex = Regex::new(r"\{\{[ \t]*([a-zA-Z_]+)[ \t]*}}").unwrap();
         for (_, [name]) in regex
             .captures_iter(&self.content)
@@ -57,7 +57,7 @@ impl Template {
         Ok(())
     }
 
-    pub fn new<S: AsRef<str>>(content: S) -> TempelResult<Self> {
+    pub fn new<S: AsRef<str>>(content: S) -> TemplerResult<Self> {
         let mut ret = Self {
             content: content.as_ref().to_string(),
             variables: Vec::new(),
@@ -69,8 +69,8 @@ impl Template {
         Ok(ret)
     }
 
-    pub fn from_file<P: AsRef<Path>>(path: P) -> TempelResult<Self> {
-        Self::new(std::fs::read_to_string(path).map_err(TempelError::TemplateRead)?)
+    pub fn from_file<P: AsRef<Path>>(path: P) -> TemplerResult<Self> {
+        Self::new(std::fs::read_to_string(path).map_err(TemplerError::TemplateRead)?)
     }
 
     fn normalize_template(&mut self) {
@@ -93,8 +93,8 @@ impl Template {
 
     fn parse_loops(
         mut template: String,
-        vars: &HashMap<String, TempelVar>,
-    ) -> TempelResult<String> {
+        vars: &HashMap<String, TemplerVar>,
+    ) -> TemplerResult<String> {
         let regex = Regex::new(
             r"\{%[ \t]*for ([a-zA-Z_]+) in ([a-zA-Z_]+)[ \t]*%}(.*?)\{%[ \t]*endfor[ \t]*%}",
         )
@@ -104,13 +104,13 @@ impl Template {
 
         for (_, [key, list, body]) in regex.captures_iter(&template).map(|caps| caps.extract()) {
             let mut new = String::new();
-            if let TempelVar::List(l) = vars
+            if let TemplerVar::List(l) = vars
                 .get(list)
-                .ok_or(TempelError::NoSuchList(list.to_string()))?
+                .ok_or(TemplerError::NoSuchList(list.to_string()))?
             {
                 for val in l {
                     let mut tmp = vars.clone();
-                    tmp.insert(key.to_string(), TempelVar::String(val.to_string()));
+                    tmp.insert(key.to_string(), TemplerVar::String(val.to_string()));
                     new.push_str(&Self::replace_vars(body.to_string(), &tmp));
                 }
             }
@@ -127,14 +127,14 @@ impl Template {
         Ok(template)
     }
 
-    fn replace_vars(mut template: String, vars: &HashMap<String, TempelVar>) -> String {
+    fn replace_vars(mut template: String, vars: &HashMap<String, TemplerVar>) -> String {
         for (key, val) in vars.iter() {
             template = template.replace(&format!("{{{{{}}}}}", key), &val.as_string());
         }
         template
     }
 
-    pub fn render(&self, vars: HashMap<String, TempelVar>) -> TempelResult<String> {
+    pub fn render(&self, vars: HashMap<String, TemplerVar>) -> TemplerResult<String> {
         let template = Self::replace_vars(self.content.clone(), &vars);
         Self::parse_loops(template, &vars)
     }

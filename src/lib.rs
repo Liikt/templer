@@ -1,4 +1,4 @@
-pub mod tempel_macros;
+pub mod templer_macros;
 
-mod tempel_types;
-pub use tempel_types::{TempelError, TempelResult, TempelVar, Template};
+mod templer_types;
+pub use templer_types::{Template, TemplerError, TemplerResult, TemplerVar};

@@ -1,5 +1,5 @@
-use tempel::template_vars;
-use tempel::{TempelVar, Template};
+use templer::template_vars;
+use templer::{Template, TemplerVar};
 
 #[test]
 fn correct_template() {
